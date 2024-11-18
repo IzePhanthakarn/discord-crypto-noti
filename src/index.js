@@ -82,6 +82,20 @@ async function getCoinPrice(coin) {
     }
 }
 
+// 🚀 Fetch Prices for All Tracked Tokens
+async function fetchCoinPrices() {
+    const ids = tokenList.join(',');
+    const API_URL = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`;
+
+    try {
+        const response = await axios.get(API_URL);
+        return response.data;
+    } catch (error) {
+        console.error('❌ Error fetching coin prices:', error);
+        return null;
+    }
+}
+
 // 📊 Check Prices for All Tracked Tokens
 async function checkAllPrices(isDaily = false) {
     if (tokenList.length === 0) {
@@ -91,20 +105,24 @@ async function checkAllPrices(isDaily = false) {
     let result = "";
     if (!isDaily) result += '💰 **ราคาปัจจุบันของเหรียญในรายการ:**\n';
 
-    for (const coin of tokenList) {
-        const data = await getCoinPrice(coin);
-        if (data) {
-            const trendEmoji = data.change24h >= 0 ? '📈' : '📉';
-            const price = data.price < 0.1 ? data.price.toFixed(8) : data.price.toFixed(2);
-            const change24h = data.change24h >= 0
-                ? `+${data.change24h.toFixed(2)}`
-                : data.change24h.toFixed(2);
-
+    const prices = await fetchCoinPrices();
+    if (!prices) {
+        return '❌ ไม่สามารถดึงข้อมูลราคาของเหรียญทั้งหมดได้';
+    }
+    tokenList.sort().forEach(coin => {
+        const coinData = prices[coin];
+        if (coinData) {
+            const trendEmoji = coinData.usd_24h_change >= 0 ? '📈' : '📉';
+            const price = coinData.usd < 0.1 ? coinData.usd.toFixed(8) : coinData.usd.toFixed(2);
+            const change24h = coinData.usd_24h_change >= 0
+                ? `+${coinData.usd_24h_change.toFixed(2)}`
+                : coinData.usd_24h_change.toFixed(2);
+    
             result += `- **${coin.toUpperCase()}**: $${price} ${trendEmoji} (เปลี่ยนแปลง: ${change24h}%)\n`;
         } else {
             result += `${coin.toUpperCase()} - ❌ ไม่สามารถดึงข้อมูลได้\n`;
         }
-    }
+    });
 
     return result;
 }
